@@ -14,7 +14,6 @@ export default class LoadBalancer {
     // Los datos son de solo lectura y se actualizan durante la simulación.
     this.servers = Object.freeze([...servers]);
     this.next = 0;
-    this.counter = 0;
   }
 
   async onRequestArrival(request, sendToServer) {
@@ -25,22 +24,27 @@ export default class LoadBalancer {
     //   work: 4              // Unidades de trabajo necesarias
     // }
 
-    const server = this.servers[this.next]
-
-
-    if(server.power ===1) {
-      this.next = (this.next + 1) % this.servers.length;
-    } else {
-      this.next = Math.floor((this.next + 1/server.power) % this.servers.length);
-      this.counter = (this.counter + 1);
-      if (this.counter >= server.power) {
-        this.counter = 0;
-        this.next = (this.next + 1) % this.servers.length;
+    for (let server of this.servers) {
+      if (server.activeRequest === null) {
+        // Si el servidor está libre, envía la petición a este servidor.
+        return sendToServer(server.id);
       }
     }
 
+    for (let server of this.servers) {
+      if (server.queuedRequests.length === 0) {
+        // Si el servidor no tiene peticiones en cola, envía la petición a este servidor.
+        return sendToServer(server.id);
+      } else {
+        // enviar la petición al servidor con menos peticiones en cola
+        let minQueueServer = this.servers.reduce((prev, curr) => {
+          return prev.queuedRequests.length < curr.queuedRequests.length ? prev : curr;
+        });
+        return sendToServer(minQueueServer.id);
+      }
+    }
 
     // Envía la petición al servidor y devuelve su respuesta al cliente.
-    return sendToServer(server.id);
+    return sendToServer(serverId);
   }
 }
